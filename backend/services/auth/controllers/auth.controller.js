@@ -28,7 +28,8 @@ export const login = async(req,res) => {
             name:user.name,
             userId:user._id,
             email:user.email,
-            avatar:user.avatar
+            avatar:user.avatar,
+            createdAt:user.createdAt
         }), "EX",7*24*60*60)
 
         res.cookie("session", sessionID, {
@@ -73,5 +74,26 @@ export const logout = async(req,res) => {
             success: false,
             message: "Can't logout user"
         })
+    }
+}
+
+
+export const me = async(req, res) => {
+    try {
+        const sessionId = req.cookies?.session
+        if (!sessionId) {
+            return res.status(401).json({ success: false, message: "No session" })
+        }
+
+        const raw = await redis.get(`session-${sessionId}`)
+        if (!raw) {
+            return res.status(401).json({ success: false, message: "Session expired" })
+        }
+
+        const user = JSON.parse(raw)
+        return res.status(200).json({ success: true, user })
+
+    } catch(error) {
+        return res.status(500).json({ success: false, message: "Server error" })
     }
 }
