@@ -14,7 +14,9 @@ app.use(cors({
 }))
 
 
-app.use("/auth", proxy(process.env.AUTH_URL))
+app.use("/api/auth", proxy(process.env.AUTH_URL, {
+    proxyReqPathResolver: (req) => `/api/auth${req.url}`
+}))
 
 
 app.get("/", (req,res) => {

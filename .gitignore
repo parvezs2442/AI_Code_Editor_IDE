@@ -22,3 +22,12 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Firebase / Google Cloud credentials
+backend/services/auth/serviceAccountKey.json
