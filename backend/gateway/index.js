@@ -33,6 +33,8 @@ app.use("/api/auth", proxy(process.env.AUTH_URL, {
     }
 }))
 
+app.use("/api/project", proxy(process.env.PROJECT_SERVICE))
+
 
 app.get("/", (req, res) => {
     res.send("Hello from Gateway")
