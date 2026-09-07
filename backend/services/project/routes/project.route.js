@@ -1,16 +1,21 @@
 
 import express from "express"
-import { createProject, deleteProject, getPorjectByid, getProjects, getStarredProject, toggleStar } from "../controller/project.controller.js";
+import {
+    createProject,
+    deleteProject,
+    getProjectById,
+    getProjects,
+    getStarredProjects,
+    toggleStar
+} from "../controller/project.controller.js";
 
 const router = express.Router();
 
-router.post("/"  , createProject)
-router.get("/"  , getProjects)
-router.get("/:id"  , getPorjectByid)
-router.get("/starred"  , getStarredProject)
-router.patch("/:id"  , toggleStar)
-router.delete("/:id"  , deleteProject)
+router.post("/", createProject)
+router.get("/", getProjects)
+router.get("/starred", getStarredProjects)
+router.get("/:id", getProjectById)
+router.patch("/:id", toggleStar)
+router.delete("/:id", deleteProject)
 
-
-
-export default router
+export default router

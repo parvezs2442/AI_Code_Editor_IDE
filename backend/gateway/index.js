@@ -3,9 +3,10 @@ import dotenv from "dotenv"
 import proxy from "express-http-proxy"
 import cors from "cors"
 import cookieParser from "cookie-parser"
-import { proxyWithHeader } from "./utils/proxyWithHeader"
+import { proxyWithHeader } from "./utils/proxyWithHeader.js"
 
 dotenv.config();
+
 
 const app = express();
 app.use(express.json())
