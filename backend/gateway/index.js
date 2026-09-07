@@ -3,6 +3,7 @@ import dotenv from "dotenv"
 import proxy from "express-http-proxy"
 import cors from "cors"
 import cookieParser from "cookie-parser"
+import { proxyWithHeader } from "./utils/proxyWithHeader"
 
 dotenv.config();
 
@@ -33,7 +34,7 @@ app.use("/api/auth", proxy(process.env.AUTH_URL, {
     }
 }))
 
-app.use("/api/project", proxy(process.env.PROJECT_SERVICE))
+app.use("/api/project",proxyWithHeader(process.env.PROJECT_SERVICE))
 
 
 app.get("/", (req, res) => {
