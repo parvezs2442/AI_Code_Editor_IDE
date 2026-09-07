@@ -1,6 +1,6 @@
-# 🧠 AI Code Editor IDE
+# 🧠 VertexAI - AI Code Editor IDE
 
-A full-stack, AI-powered code editor with Google OAuth authentication, built on a **microservices architecture** using React (Vite), Node.js/Express, MongoDB, Firebase Auth, and an API Gateway.
+A full-stack, AI-powered cloud code editor built on a high-performance **microservices architecture** using React (Vite), Node.js/Express, MongoDB, Redis, Firebase Auth, and an API Gateway.
 
 ---
 
@@ -10,23 +10,29 @@ A full-stack, AI-powered code editor with Google OAuth authentication, built on 
 ┌─────────────────────────────────────────────────────────┐
 │                  Frontend (React + Vite)                │
 │                  http://localhost:5173                  │
+│        - VertexAI Dashboard (Projects & Starred)        │
+│        - Google 1-Click Auth via Firebase               │
 └──────────────────────────┬──────────────────────────────┘
-                           │ HTTP (Axios)
+                           │ HTTP + HttpOnly Cookies (Axios)
                            ▼
 ┌─────────────────────────────────────────────────────────┐
 │                 API Gateway (Express)                   │
 │                 http://localhost:3000                   │
+│   - Session lookup via Redis & x-user-id injection      │
+│   - Cookie preservation across microservices            │
 │                                                         │
-│   /api/auth  ──────────────────────────────────────►   │
-└──────────────────────────┬──────────────────────────────┘
-                           │ Proxy
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│             Auth Microservice (Express)                 │
-│                 http://localhost:3001                   │
-│   - Firebase Admin SDK (token verification)            │
-│   - MongoDB (user storage)                             │
-└─────────────────────────────────────────────────────────┘
+│   /api/auth ──────────────► Auth Service (:3001)        │
+│   /api/project ───────────► Project Service (:3002)     │
+└──────────────┬──────────────────────────┬───────────────┘
+               │                          │
+               ▼                          ▼
+┌─────────────────────────┐    ┌──────────────────────────┐
+│ Auth Service (:3001)    │    │ Project Service (:3002)  │
+│ - Firebase Admin SDK    │    │ - Project CRUD           │
+│ - MongoDB (Users)       │    │ - Star / Unstar          │
+│ - Redis (Session Store) │    │ - Redis Cache Layer      │
+│                         │    │ - MongoDB (Projects)     │
+└─────────────────────────┘    └──────────────────────────┘
 ```
 
 ---
@@ -37,33 +43,47 @@ A full-stack, AI-powered code editor with Google OAuth authentication, built on 
 AI_CodeEditor_IDE/
 ├── frontend/                      # React + Vite client
 │   ├── src/
+│   │   ├── components/
+│   │   │   ├── CreateProjectModal.jsx # Create Project dialog
+│   │   │   └── ProtectedRoute.jsx
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx    # Global user session
 │   │   ├── features/
-│   │   │   └── login.js           # Login API call
+│   │   │   ├── auth.js            # Me & Logout API
+│   │   │   ├── login.js           # Login API
+│   │   │   └── projects.js        # Project CRUD API
+│   │   ├── pages/
+│   │   │   ├── Dashboard.jsx      # VertexAI Dashboard UI
+│   │   │   └── LoginPage.jsx
 │   │   ├── utils/
-│   │   │   └── axios.js           # Axios instance
-│   │   ├── App.jsx                # Main component (Google login)
+│   │   │   └── axios.js           # Configured Axios with credentials
+│   │   ├── App.jsx
 │   │   └── main.jsx
 │   ├── firebase.js                # Firebase client config
-│   └── .env                       # Frontend env vars (git-ignored)
+│   └── .env                       # Frontend env vars
 │
 └── backend/
-    ├── gateway/                   # API Gateway
-    │   ├── index.js
-    │   └── .env                   # Gateway env vars (git-ignored)
+    ├── gateway/                   # API Gateway (Port 3000)
+    │   ├── utils/
+    │   │   └── proxyWithHeader.js # Header and session proxy
+    │   └── index.js
+    ├── shared/
+    │   └── redis/
+    │       └── redis.js           # Centralized ioredis connection
     └── services/
-        └── auth/                  # Auth Microservice
-            ├── controllers/
-            │   └── auth.controller.js
+        ├── auth/                  # Auth Microservice (Port 3001)
+        │   ├── controllers/
+        │   ├── routes/
+        │   ├── models/
+        │   └── config/
+        └── project/               # Project Microservice (Port 3002)
+            ├── controller/
+            │   └── project.controller.js
             ├── routes/
-            │   └── auth.routes.js
-            ├── config/
-            │   ├── db.js          # MongoDB connection
-            │   └── firebase.js    # Firebase Admin SDK init
-            ├── models/
-            │   └── userModel.js
-            ├── serviceAccountKey.json  # ⚠️ DO NOT COMMIT
-            ├── index.js
-            └── .env               # Auth service env vars (git-ignored)
+            │   └── project.route.js
+            ├── model/
+            │   └── project.model.js
+            └── index.js
 ```
 
 ---
@@ -72,10 +92,11 @@ AI_CodeEditor_IDE/
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 19, Vite, Axios, Firebase JS SDK |
-| **Auth** | Firebase Authentication (Google OAuth) |
-| **Gateway** | Express.js, express-http-proxy |
-| **Auth Service** | Express.js, Firebase Admin SDK, Mongoose |
+| **Frontend** | React 19, Vite, React Router v6, Axios, Vanilla CSS |
+| **Auth** | Firebase Authentication (Google OAuth) + Firebase Admin SDK |
+| **Gateway** | Express.js, express-http-proxy, cookie-parser |
+| **Microservices** | Express.js, Mongoose, ioredis |
+| **Caching & Sessions** | Redis (TTL cached project lists & 7-day session store) |
 | **Database** | MongoDB Atlas |
 
 ---
@@ -85,22 +106,14 @@ AI_CodeEditor_IDE/
 ### Prerequisites
 
 - Node.js v18+
-- A [Firebase Project](https://console.firebase.google.com/) with Google Auth enabled
-- A MongoDB Atlas cluster
-- Firebase `serviceAccountKey.json` (download from Firebase Console → Project Settings → Service Accounts)
+- Redis Server (local or cloud instance running on port 6379)
+- [Firebase Project](https://console.firebase.google.com/) with Google Auth enabled
+- MongoDB Atlas cluster
+- Firebase `serviceAccountKey.json` inside `backend/services/auth/`
 
 ---
 
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/parvezs2442/AI_Code_Editor_IDE.git
-cd AI_CodeEditor_IDE
-```
-
----
-
-### 2. Frontend Setup
+### 1. Frontend Setup
 
 ```bash
 cd frontend
@@ -114,7 +127,7 @@ VITE_FIREBASE_API_KEY=your_firebase_api_key
 VITE_SERVER_URL=http://localhost:3000
 ```
 
-Start the dev server:
+Start dev server:
 
 ```bash
 npm run dev
@@ -123,7 +136,7 @@ npm run dev
 
 ---
 
-### 3. API Gateway Setup
+### 2. API Gateway Setup
 
 ```bash
 cd backend/gateway
@@ -136,6 +149,8 @@ Create `backend/gateway/.env`:
 PORT=3000
 FRONTEND_URL=http://localhost:5173
 AUTH_URL=http://localhost:3001
+PROJECT_SERVICE=http://localhost:3002
+REDIS_URL=redis://localhost:6379
 ```
 
 Start the gateway:
@@ -147,14 +162,14 @@ npm run dev
 
 ---
 
-### 4. Auth Microservice Setup
+### 3. Auth Service Setup
 
 ```bash
 cd backend/services/auth
 npm install
 ```
 
-Place your `serviceAccountKey.json` inside `backend/services/auth/`.
+Place `serviceAccountKey.json` inside `backend/services/auth/`.
 
 Create `backend/services/auth/.env`:
 
@@ -162,9 +177,10 @@ Create `backend/services/auth/.env`:
 PORT=3001
 FRONTEND_URL=http://localhost:5173
 MONGO_URL=mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/user
+REDIS_URL=redis://localhost:6379
 ```
 
-Start the auth service:
+Start auth service:
 
 ```bash
 npm run dev
@@ -173,63 +189,47 @@ npm run dev
 
 ---
 
-## 🔐 Authentication Flow
+### 4. Project Service Setup
 
+```bash
+cd backend/services/project
+npm install
 ```
-1. User clicks "Sign in with Google"
-2. Firebase popup opens → user authenticates with Google
-3. Firebase returns a short-lived ID Token to the frontend
-4. Frontend POSTs the token to Gateway:  POST /api/auth/login
-5. Gateway proxies the request to Auth Service
-6. Auth Service verifies the token with Firebase Admin SDK
-7. Decoded user info is returned as JSON to the frontend
+
+Create `backend/services/project/.env`:
+
+```env
+PORT=3002
+FRONTEND_URL=http://localhost:5173
+MONGO_URL=mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/project
+REDIS_URL=redis://localhost:6379
+```
+
+Start project service:
+
+```bash
+npm run dev
+# Runs on http://localhost:3002
 ```
 
 ---
 
 ## 🌐 API Reference
 
-### `POST /api/auth/login`
+### Authentication Endpoints (`/api/auth`)
 
-Verifies a Firebase Google ID token and returns decoded user info.
+- `POST /api/auth/login` - Verify Firebase ID token, create/find user, set HttpOnly session cookie.
+- `GET /api/auth/me` - Validate session from Redis and return current user data.
+- `POST /api/auth/logout` - Clear Redis session and delete cookie.
 
-**Request Body:**
-```json
-{
-  "token": "<firebase_id_token>"
-}
-```
+### Project Endpoints (`/api/project`)
 
-**Success Response `200`:**
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "user": {
-    "uid": "abc123",
-    "email": "user@example.com",
-    "name": "User Name"
-  }
-}
-```
-
-**Error Response `400`:**
-```json
-{
-  "success": false,
-  "message": "Can't login user"
-}
-```
-
----
-
-## 🔒 Security Notes
-
-> ⚠️ **Never commit** `serviceAccountKey.json` or `.env` files — they are listed in `.gitignore`.
-
-- Rotate Firebase service account keys periodically
-- Use HTTPS and secure cookies in production
-- Validate and sanitize all inputs on the backend
+- `POST /api/project` - Create a new project `{ name, description }`.
+- `GET /api/project` - Get all projects for authenticated user (cached in Redis).
+- `GET /api/project/starred` - Get starred projects for authenticated user (cached in Redis).
+- `GET /api/project/:id` - Get specific project by ID and update `lastOpenedAt`.
+- `PATCH /api/project/:id` - Toggle project star status (invalidates user cache).
+- `DELETE /api/project/:id` - Delete project (invalidates user cache).
 
 ---
 
