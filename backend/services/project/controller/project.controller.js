@@ -95,7 +95,6 @@ export const getPorjectByid = async(req,res) => {
 }
 
 
-
 export const ge = async(req,res) => {
     try{
        
@@ -118,3 +117,62 @@ export const ge = async(req,res) => {
         })
     }
 }
+
+
+export const toggleStar = async(req,res) => {
+    try{    
+    const userId = req.headers["x-user-id"]
+        if(!userId){
+            return res.status(401).json({
+                success:false,
+                message:"User Id is required"
+            })
+        }
+
+        const {id}  = req.params
+        const project = await Project.findById(id)
+        project.starred = !project.starred
+        if(!project){
+                    return res.status(400).json({
+            success:false,
+            message:"project not found"
+        })
+        }
+        await project.save()
+
+        return res.status(200).json({
+            success:true,
+            message:"toggled starred project"
+            project
+        })
+    }catch(error){
+        return res.status(200).json({
+            success:false,
+            message:"toggled starred project failed"
+        })
+    }
+} 
+
+
+export const deleteProject = async(req,res) => {
+    try{    
+        const {id}  = req.params
+        const project = await Project.findByIdAndDelete(id)
+        if(!project){
+                return res.status(400).json({
+            success:false,
+            message:"project not found"
+        })
+        }
+        return res.status(200).json({
+            success:true,
+            message:"project deleted",
+            project
+        })
+    }catch(error){
+        return res.status(200).json({
+            success:false,
+            message:"delete project failed"
+        })
+    }
+} 
