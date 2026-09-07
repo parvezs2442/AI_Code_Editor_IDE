@@ -95,7 +95,7 @@ export const getPorjectByid = async(req,res) => {
 }
 
 
-export const ge = async(req,res) => {
+export const getStarredProject = async(req,res) => {
     try{
        
         const {id}  = req.params
