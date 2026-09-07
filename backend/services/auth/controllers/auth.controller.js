@@ -97,3 +97,52 @@ export const me = async(req, res) => {
         return res.status(500).json({ success: false, message: "Server error" })
     }
 }
+
+export const devLogin = async (req, res) => {
+    try {
+        console.log("[Auth Service] devLogin hit");
+        let user = await User.findOne({ email: "ayush@vertexai.dev" });
+        console.log("[Auth Service] findOne user:", user?._id);
+        if (!user) {
+            user = await User.create({
+                firebaseUid: "dev_user_ayush_vertexai",
+                name: "Ayush Sahu",
+                email: "ayush@vertexai.dev",
+                avatar: ""
+            });
+            console.log("[Auth Service] user created:", user._id);
+        }
+
+        const sessionID = crypto.randomUUID();
+        console.log("[Auth Service] sessionID generated:", sessionID);
+        await redis.set(`session-${sessionID}`, JSON.stringify({
+            name: user.name,
+            userId: user._id,
+            email: user.email,
+            avatar: user.avatar,
+            createdAt: user.createdAt
+        }), "EX", 30 * 24 * 60 * 60);
+        console.log("[Auth Service] redis session saved");
+
+        res.cookie("session", sessionID, {
+            httpOnly: true,
+            secure: false,
+            sameSite: "lax",
+            maxAge: 30 * 24 * 60 * 60 * 1000
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Dev login successful",
+            user
+        });
+    } catch (error) {
+        console.error("[Auth Service] Dev login error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Dev login failed"
+        });
+    }
+};
+
+

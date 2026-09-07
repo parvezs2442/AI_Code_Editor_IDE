@@ -17,3 +17,14 @@ export const logoutUser = async () => {
         console.log("Logout error:", error)
     }
 }
+
+export const devLogin = async () => {
+    try {
+        const res = await api.post("/api/auth/dev-login")
+        return res.data
+    } catch (error) {
+        console.error("Dev login API error:", error)
+        throw error
+    }
+}
+

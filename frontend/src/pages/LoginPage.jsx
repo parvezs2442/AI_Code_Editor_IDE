@@ -1,16 +1,25 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signInWithPopup } from "firebase/auth"
 import { useNavigate } from "react-router-dom"
 import { auth, googleProvider } from "../../firebase"
 import { login } from "../features/login"
+import { devLogin } from "../features/auth"
 import { useAuth } from "../context/AuthContext"
 import "./LoginPage.css"
 
 const LoginPage = () => {
     const [loading, setLoading] = useState(false)
+    const [devLoading, setDevLoading] = useState(false)
     const [error, setError] = useState("")
     const navigate = useNavigate()
-    const { setUser } = useAuth()
+    const { user, setUser } = useAuth()
+
+    // If user is already logged in, redirect to dashboard immediately
+    useEffect(() => {
+        if (user) {
+            navigate("/dashboard")
+        }
+    }, [user, navigate])
 
     const handleLogin = async () => {
         setLoading(true)
@@ -23,15 +32,48 @@ const LoginPage = () => {
                 setUser(data.data.user)
                 navigate("/dashboard")
             } else {
-                setError("Login failed. Please try again.")
+                setError(data?.data?.message || "Backend login failed. Check server connection.")
             }
         } catch (err) {
-            console.error(err)
-            setError("Something went wrong. Please try again.")
+            console.error("Login error:", err)
+            if (err?.code === "auth/popup-closed-by-user") {
+                setError("Sign-in popup was closed before completing.")
+            } else if (err?.code === "auth/popup-blocked") {
+                setError("Popup was blocked by your browser. Please allow popups for localhost.")
+            } else {
+                setError(err?.message || "Something went wrong during sign in.")
+            }
         } finally {
             setLoading(false)
         }
     }
+
+    const handleDevLogin = () => {
+        setDevLoading(true)
+        setError("")
+        try {
+            const devUser = {
+                _id: "675000000000000000000001",
+                userId: "675000000000000000000001",
+                name: "Ayush Sahu",
+                email: "ayush@vertexai.dev",
+                avatar: ""
+            }
+            setUser(devUser)
+            // Sync server session in background if available
+            devLogin().then((res) => {
+                if (res?.user) setUser(res.user)
+            }).catch(() => {})
+            
+            navigate("/dashboard")
+        } catch (err) {
+            console.error(err)
+            navigate("/dashboard")
+        } finally {
+            setDevLoading(false)
+        }
+    }
+
 
     return (
         <div className="login-page">
@@ -68,12 +110,36 @@ const LoginPage = () => {
                     </p>
                 </div>
 
+                {/* Instant 1-Click Access */}
+                <button
+                    type="button"
+                    className={`dev-instant-login-btn ${devLoading ? "loading" : ""}`}
+                    onClick={handleDevLogin}
+                    disabled={devLoading || loading}
+                >
+                    {devLoading ? (
+                        <>
+                            <span className="btn-spinner"></span>
+                            <span>Entering Dashboard…</span>
+                        </>
+                    ) : (
+                        <>
+                            <span>⚡</span>
+                            <span>Instant Access (Skip Google Login)</span>
+                        </>
+                    )}
+                </button>
+
+                <div className="login-divider">
+                    <span>or continue with</span>
+                </div>
+
                 {/* Google Sign-in */}
                 <button
                     id="google-signin-btn"
                     className={`login-google-btn ${loading ? "loading" : ""}`}
                     onClick={handleLogin}
-                    disabled={loading}
+                    disabled={loading || devLoading}
                 >
                     {loading ? (
                         <>
@@ -88,7 +154,7 @@ const LoginPage = () => {
                                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
                                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                             </svg>
-                            <span>Continue with Google</span>
+                            <span>Google Account</span>
                         </>
                     )}
                 </button>
@@ -101,6 +167,7 @@ const LoginPage = () => {
                         {error}
                     </div>
                 )}
+
 
                 {/* Divider / features */}
                 <div className="login-features">

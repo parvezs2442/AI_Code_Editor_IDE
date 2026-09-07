@@ -1,16 +1,23 @@
 
 import mongoose from "mongoose"
 import dotenv from "dotenv"
-dotenv.config();
+import path from "path"
+import { fileURLToPath } from "url"
 
-const dbConnect = async() => {
-    try{
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+dotenv.config({ path: path.resolve(__dirname, "../.env") })
+
+const dbConnect = async () => {
+    try {
+        if (!process.env.MONGO_URL) {
+            throw new Error("MONGO_URL environment variable is not defined");
+        }
         await mongoose.connect(process.env.MONGO_URL)
-        console.log("DATABASE CONNECTED SUCCESSFULLY")
-
-    }catch(error){
-        console.log("Error -> ", error)
+        console.log("PROJECT DATABASE CONNECTED SUCCESSFULLY")
+    } catch (error) {
+        console.error("Project database connection error:", error)
     }
 }
 
-export default dbConnect
+
+export default dbConnect

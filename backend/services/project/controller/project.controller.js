@@ -25,9 +25,13 @@ export const createProject = async (req, res) => {
             description: description?.trim() || ""
         });
 
-        // Invalidate user cache
-        await redis.del(`projects-${userId}`);
-        await redis.del(`starred-projects-${userId}`);
+        // Invalidate user cache (safe fallback if redis is down)
+        try {
+            await redis.del(`projects-${userId}`);
+            await redis.del(`starred-projects-${userId}`);
+        } catch (e) {
+            console.warn("Redis cache invalidation skipped:", e.message);
+        }
 
         return res.status(201).json({
             success: true,
@@ -54,25 +58,34 @@ export const getProjects = async (req, res) => {
         }
 
         const key = `projects-${userId}`;
-        const cached = await redis.get(key);
-        if (cached) {
-            return res.status(200).json({
-                success: true,
-                projects: JSON.parse(cached)
-            });
+        try {
+            const cached = await redis.get(key);
+            if (cached) {
+                return res.status(200).json({
+                    success: true,
+                    projects: JSON.parse(cached)
+                });
+            }
+        } catch (e) {
+            console.warn("Redis cache read skipped:", e.message);
         }
 
         const projects = await Project.find({
             owner: userId
         }).sort({ updatedAt: -1 });
 
-        await redis.set(key, JSON.stringify(projects), "EX", 120);
+        try {
+            await redis.set(key, JSON.stringify(projects), "EX", 120);
+        } catch (e) {
+            console.warn("Redis cache write skipped:", e.message);
+        }
 
         return res.status(200).json({
             success: true,
             message: "Projects retrieved successfully",
             projects
         });
+
     } catch (error) {
         console.error("Error getting projects:", error);
         return res.status(500).json({
@@ -93,12 +106,16 @@ export const getStarredProjects = async (req, res) => {
         }
 
         const key = `starred-projects-${userId}`;
-        const cached = await redis.get(key);
-        if (cached) {
-            return res.status(200).json({
-                success: true,
-                projects: JSON.parse(cached)
-            });
+        try {
+            const cached = await redis.get(key);
+            if (cached) {
+                return res.status(200).json({
+                    success: true,
+                    projects: JSON.parse(cached)
+                });
+            }
+        } catch (e) {
+            console.warn("Redis starred cache read skipped:", e.message);
         }
 
         const projects = await Project.find({
@@ -106,7 +123,11 @@ export const getStarredProjects = async (req, res) => {
             starred: true
         }).sort({ updatedAt: -1 });
 
-        await redis.set(key, JSON.stringify(projects), "EX", 120);
+        try {
+            await redis.set(key, JSON.stringify(projects), "EX", 120);
+        } catch (e) {
+            console.warn("Redis starred cache write skipped:", e.message);
+        }
 
         return res.status(200).json({
             success: true,
@@ -174,9 +195,13 @@ export const toggleStar = async (req, res) => {
         project.starred = !project.starred;
         await project.save();
 
-        // Invalidate both lists in cache
-        await redis.del(`projects-${userId}`);
-        await redis.del(`starred-projects-${userId}`);
+        // Invalidate both lists in cache safely
+        try {
+            await redis.del(`projects-${userId}`);
+            await redis.del(`starred-projects-${userId}`);
+        } catch (e) {
+            console.warn("Redis cache invalidation skipped:", e.message);
+        }
 
         return res.status(200).json({
             success: true,
@@ -211,9 +236,14 @@ export const deleteProject = async (req, res) => {
             });
         }
 
-        // Invalidate cache
-        await redis.del(`projects-${userId}`);
-        await redis.del(`starred-projects-${userId}`);
+        // Invalidate cache safely
+        try {
+            await redis.del(`projects-${userId}`);
+            await redis.del(`starred-projects-${userId}`);
+        } catch (e) {
+            console.warn("Redis cache invalidation skipped:", e.message);
+        }
+
 
         return res.status(200).json({
             success: true,
